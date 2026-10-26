@@ -3,21 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Bluetooth Dashboard</title>
+    <title>ESP32 Dashboard (Wi-Fi Realtime)</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f4f4f9; }
         .card { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0px 4px 10px rgba(0,0,0,0.1); }
-        button { padding: 12px 24px; font-size: 16px; cursor: pointer; background-color: #007BFF; color: white; border: none; border-radius: 5px; }
-        button:hover { background-color: #0056b3; }
+        .status { font-weight: bold; padding: 8px 16px; border-radius: 5px; display: inline-block; color: white; margin-bottom: 15px; }
+        .status.connected { background-color: #28a745; }
+        .status.disconnected { background-color: #dc3545; }
         .data-display { margin-top: 20px; font-size: 22px; }
     </style>
+    <!-- Library MQTT via WebSockets -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 </head>
 <body>
 
     <div class="card">
         <h1>ESP32 Kelompok Imut</h1>
         <h4>Nagata Imelda Lorain</h4>
-        <button id="connectBtn">Connect to ESP32</button>
+        <div id="statusBtn" class="status disconnected">Connecting to Wi-Fi Server...</div>
         
         <div class="data-display">
             <p>Temperature: <span id="temp">--</span> &deg;C</p>
@@ -26,55 +29,40 @@
     </div>
 
     <script>
-        const serviceUUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-        const characteristicUUID = "beb5483e-36e1-4688-b7f5-ea07361b26a1";
+        // Topik harus persis sama dengan yang ditulis di kode Arduino ESP32
+        const topic = "kelompok_imut_nagata/ds18b20"; 
 
-        const connectBtn = document.getElementById('connectBtn');
         const tempSpan = document.getElementById('temp');
         const humSpan = document.getElementById('hum');
+        const statusBtn = document.getElementById('statusBtn');
 
-        connectBtn.addEventListener('click', async () => {
-            try {
-                console.log('Requesting Bluetooth Device...');
-                const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: [serviceUUID]
-                });
+        // Koneksi ke WebSockets HiveMQ (HTTPS Friendly)
+        const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
-                console.log('Connecting to GATT Server...');
-                const server = await device.gatt.connect();
+        client.on('connect', () => {
+            console.log('Connected to MQTT Broker!');
+            statusBtn.textContent = 'Online (Live Data)';
+            statusBtn.className = 'status connected';
+            client.subscribe(topic);
+        });
 
-                console.log('Getting Service...');
-                const service = await server.getPrimaryService(serviceUUID);
-
-                console.log('Getting Characteristic...');
-                const characteristic = await service.getCharacteristic(characteristicUUID);
-
-                console.log('Starting Notifications...');
-                await characteristic.startNotifications();
-                
-                // Event listener saat ada data masuk
-                characteristic.addEventListener('characteristicvaluechanged', (event) => {
-                    const value = new TextDecoder().decode(event.target.value);
-                    console.log("Data dari ESP32:", value); // Cek data di F12 Console
-                    
-                    const parts = value.split(',');
-                    if (parts.length >= 2) {
-                        tempSpan.textContent = parts[0];
-                        humSpan.textContent = parts[1];
-                    } else {
-                        tempSpan.textContent = value;
-                    }
-                });
-
-                connectBtn.textContent = 'Connected';
-                connectBtn.style.backgroundColor = '#28a745';
-                connectBtn.disabled = true;
-
-            } catch (error) {
-                console.error('Connection failed:', error);
-                alert('Connection failed: ' + error);
+        client.on('message', (receivedTopic, message) => {
+            const value = message.toString();
+            console.log("Data diterima:", value);
+            
+            const parts = value.split(',');
+            if (parts.length >= 2) {
+                tempSpan.textContent = parts[0];
+                humSpan.textContent = parts[1];
+            } else {
+                tempSpan.textContent = value;
             }
+        });
+
+        client.on('error', (err) => {
+            console.error('MQTT Error: ', err);
+            statusBtn.textContent = 'Connection Error';
+            statusBtn.className = 'status disconnected';
         });
     </script>
 </body>
