@@ -38,7 +38,7 @@
                 // 1. Request Bluetooth device filtered by name
                 console.log('Requesting Bluetooth Device...');
                 const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
+                    filters: [{ name: 'ESP32_Sensor' }],
                     optionalServices: [serviceUUID]
                 });
 
