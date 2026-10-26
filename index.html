@@ -15,7 +15,7 @@
 <body>
 
     <div class="card">
-        <h1>ESP32 kelompok imut</h1>
+        <h1>ESP32 Kelompok Imut</h1>
         <h4>Nagata Imelda Lorain</h4>
         <button id="connectBtn">Connect to ESP32</button>
         
@@ -35,48 +35,45 @@
 
         connectBtn.addEventListener('click', async () => {
             try {
-                // 1. Request Bluetooth device filtered by name
                 console.log('Requesting Bluetooth Device...');
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ESP32_Sensor' }],
+                    acceptAllDevices: true,
                     optionalServices: [serviceUUID]
                 });
 
-                // 2. Connect to the device's GATT server
                 console.log('Connecting to GATT Server...');
                 const server = await device.gatt.connect();
 
-                // 3. Get the custom service
                 console.log('Getting Service...');
                 const service = await server.getPrimaryService(serviceUUID);
 
-                // 4. Get the characteristic
                 console.log('Getting Characteristic...');
                 const characteristic = await service.getCharacteristic(characteristicUUID);
 
-                // 5. Start listening for live notifications
                 console.log('Starting Notifications...');
                 await characteristic.startNotifications();
                 
+                // Event listener saat ada data masuk
                 characteristic.addEventListener('characteristicvaluechanged', (event) => {
                     const value = new TextDecoder().decode(event.target.value);
+                    console.log("Data dari ESP32:", value); // Cek data di F12 Console
                     
-                    // Parse the "temp,humidity" string payload
                     const parts = value.split(',');
-                    if (parts.length === 2) {
+                    if (parts.length >= 2) {
                         tempSpan.textContent = parts[0];
                         humSpan.textContent = parts[1];
+                    } else {
+                        tempSpan.textContent = value;
                     }
                 });
 
-                // Update UI upon successful connection
                 connectBtn.textContent = 'Connected';
                 connectBtn.style.backgroundColor = '#28a745';
                 connectBtn.disabled = true;
 
             } catch (error) {
-                console.error('Connection failed: ', error);
-                alert('Connection failed or canceled: ' + error);
+                console.error('Connection failed:', error);
+                alert('Connection failed: ' + error);
             }
         });
     </script>
